@@ -2,15 +2,17 @@
 
 Complete setup for Ryzen AI Max+ 395, 128 GB unified memory on Linux. Needs ~130 GB free disk space and sudo access.
 
-- Server Runtime: [`halo-box/strix-llama.cpp`](https://github.com/halo-box/strix-llama.cpp) (HIP build). 
+- Server Runtime: [`halo-box/strix-llama.cpp`](https://github.com/halo-box/strix-llama.cpp) (HIP build).
   Read more [here](https://pwilkin.github.io/strix-halo/) ("the community fork").
-- Model: [`ilintar/qwen3.8-flash-next-gguf-strix-halo`](https://huggingface.co/ilintar/qwen3.8-flash-next-gguf-strix-halo) (93 GiB IQ4_NL, 9 shards + MTP draft).
-- Expected Speed: 1k t/s prompt processing and 20-60 t/s token generation.
-- Default distro: Ubuntu 26.04. LTS (hints for other distros included)
+- Model: [
+  `ilintar/qwen3.8-flash-next-gguf-strix-halo`](https://huggingface.co/ilintar/qwen3.8-flash-next-gguf-strix-halo) (93
+  GiB IQ4_NL, 9 shards + MTP draft).
+- Expected Speed: 1k t/s prompt processing and 20-55 t/s token generation.
+- Default distro: Ubuntu 26.04 LTS (hints for other distros included)
 
 ## 0. Directories & Basic Tools
 
-Chose where to store model and server runtime.
+Choose where to store model and server runtime.
 
 ```bash
 export MODEL_DIR=~/workspace/models/Qwen3.8-Flash-Next # wherever you store the GGUFs for Qwen3.8 Flash Next
@@ -26,12 +28,11 @@ sudo apt update && sudo apt install -y vim curl wget
 
 Fedora/RHEL: `sudo dnf install -y vim curl wget`. Arch: `sudo pacman -S --needed vim curl wget`
 
-
 ## 1. BIOS: UMA/VRAM Setting
 
 In BIOS, the option is usually called "UMA Frame Buffer Size" or "VRAM
 Allocation". Set it to **auto** or the **smallest possible value**
-(e.g. 512 MB). The model lives in shared system memory accessed through GTT (step 2). 
+(e.g. 512 MB). The model lives in shared system memory accessed through GTT (step 2).
 
 If your BIOS has no such option, skip this.
 
@@ -39,19 +40,21 @@ If your BIOS has no such option, skip this.
 
 Set three parameters via the bootloader:
 
-| param | why |
-|---|---|
-| `amd_iommu=off` | disables IOMMU remapping; avoids DMA translation overhead/quirks of the iGPU with very large buffers under ROCm |
-| `amdgpu.gttsize=112640` | grows the GTT (the GPU's window into system RAM) to 110 GB, so 93 GB weights + KV cache + compute buffers fit (formula: `<GTT in GB> * 1024`) |
-| `ttm.pages_limit=28835840` | raises TTM's allocation page cap to match 110 GB at 4 KB pages (formula: `<amdgpu.gttsize> * 1024 * 1024 / 4096`)  |
+| param                      | why                                                                                                                                           |
+|----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| `amd_iommu=off`            | disables IOMMU remapping; avoids DMA translation overhead/quirks of the iGPU with very large buffers under ROCm                               |
+| `amdgpu.gttsize=112640`    | grows the GTT (the GPU's window into system RAM) to 110 GB, so 93 GB weights + KV cache + compute buffers fit (formula: `<GTT in GB> * 1024`) |
+| `ttm.pages_limit=28835840` | raises TTM's allocation page cap to match 110 GB at 4 KB pages (formula: `<amdgpu.gttsize> * 1024 * 1024 / 4096`)                             |
 
-This gives enough space for model weights and context while still leaving room for other tasks so that the halo box may still be usable as main machine (depending on the task) - not only as dedicated inference machine.
+This gives enough space for model weights and context while still leaving room for other tasks so that the halo box may
+still be usable as main machine (depending on the task) - not only as dedicated inference machine.
 
 Ubuntu: edit `/etc/default/grub` (requires sudo), e.g.
 
 ```bash
 sudo vi /etc/default/grub
 ```
+
 uncomment (if need be) and set the default cmdline as follows:
 
 ```GRUB_CMDLINE_LINUX_DEFAULT="quiet splash amd_iommu=off amdgpu.gttsize=112640 ttm.pages_limit=28835840"```
@@ -87,13 +90,14 @@ Install the current ROCm SDK per the official docs <https://rocm.docs.amd.com/en
 - Use Case: Compute
 - Ryzen APU: AMD Ryzen AI Max+ PRO 395
 
-The single SDK package `amdrocm-core-sdk<version>-gfx1151` covers everything needed. Adjust the version number to whatever the latest version is, e.g.
+The single SDK package `amdrocm-core-sdk<version>-gfx1151` covers everything needed. Adjust the version number to
+whatever the latest version is, e.g.
 
 ```bash
 sudo apt update && sudo apt install -y amdrocm-core-sdk10.0-gfx1151
 ```
 
-Ubuntu 26.04. LTS is a supported ROCm target. But the same package family exists for RHEL/Fedora.
+Ubuntu 26.04 LTS is a supported ROCm target. But the same package family exists for RHEL/Fedora.
 
 Verify:
 
@@ -122,11 +126,13 @@ Useful live insights into GPU / VRAM usage, see <https://github.com/Umio-Yasuno/
 Make sure `cargo` is installed.
 
 Ubuntu:
+
 ```bash
 sudo apt update && sudo apt install -y cargo pkg-config libdrm-dev
 ```
 
 Other distros:
+
 ```bash
 # any distro
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -151,9 +157,11 @@ amdgpu_top
 ```
 
 Dark mode:
+
 ```bash
 amdgpu_top --dark
 ```
+
 During model load, you'll see GTT usage climb.
 
 ## 7. Build Runtime
@@ -165,14 +173,14 @@ cd strix-llama.cpp
 export HIPCXX="$(hipconfig -l)/clang"
 export HIP_PATH="$(hipconfig -R)"
 cmake -B build -DGGML_HIP=ON -DGPU_TARGETS=gfx1151 -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j --target llama-server llama-bench
+cmake --build build -j
 ```
 
 ## 8. Model
 
 Repo: <https://huggingface.co/ilintar/qwen3.8-flash-next-gguf-strix-halo>
 
-Download manually into $MODEL_DIR or use hugginface `hf` client.
+Download manually into $MODEL_DIR or use Hugging Face `hf` client.
 
 ## 9. Runtime Configuration
 
@@ -215,7 +223,7 @@ spec-type = draft-mtp
 spec-draft-model = ${MODEL_DIR}/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf
 spec-draft-device = ROCm0
 gpu-layers-draft = 999
-# increase speculation dynamically when predicted acceptance probability >= 0.75   
+# increase speculation dynamically when predicted acceptance probability >= 0.75
 spec-draft-adaptive = on
 spec-draft-n-min = 0
 spec-draft-n-max = 7
@@ -244,9 +252,154 @@ Model load takes a few minutes. Runtime is ready when it prints the endpoint on 
 
 ## Troubleshooting
 
-- `/dev/kfd: Permission denied` — make sure user is in groups `render` and `video` 
-(for docker: GIDs must match host GIDs and devices `/dev/kfd` and `/dev/dri` must be mapped into the container.)
-- **Model loading fails with out-of-memory** (despite 128 GB) — set kernel params (step 2), check `/proc/cmdline` and `/sys/module/amdgpu/parameters/gttsize`.
+- `/dev/kfd: Permission denied` — make sure user is in groups `render` and `video`
+  (for docker: GIDs must match host GIDs and devices `/dev/kfd` and `/dev/dri` must be mapped into the container.)
+- **Model loading fails with out-of-memory** (despite 128 GB) — set kernel params (step 2), check `/proc/cmdline` and
+  `/sys/module/amdgpu/parameters/gttsize`.
 - **Garbled output only with `parallel > 1`** — set `HIP_LAUNCH_BLOCKING=1` before running the server.
 - **Error loading shared libraries** — set `LD_LIBRARY_PATH=/opt/rocm/lib:$LD_LIBRARY_PATH` before running the server.
 
+## Annex: Qwen3.8 Flash Next Variants
+
+The `strix-llama.cpp` runtime reaches its ~1k t/s prompt processing with hand-tuned
+ROCm kernels that only engage for specific per-tensor quant types: IQ4_NL for the bulk
+weights, Q8_0 for the attention K/V and PLE projections, Q6_K for attention output and
+LM head, BF16/F32 for the small sensitive tensors. Quantizations with other type mixes (e.g. a plain IQ4_XS dump) load
+and run fine, but fall back to slower generic kernel
+paths and process prompts at a fraction of the speed.
+
+The reference model above is packaged accordingly: `PROJFIX` in its file names marks a
+re-export whose tensors match this kernel contract. This annex reproduces the same
+packaging for any Qwen3.8 Flash Next variant, starting from the variant's original
+safetensors or a bf16 gguf:
+
+- the repo's converter provides the tensor layout the runtime expects,
+- the PROJFIX type map in step A.3 selects the quant types the tuned kernels fast-path,
+- a fresh importance matrix keeps the aggressive 4-bit bulk quantization benign.
+
+The type map only pays off on this runtime; on Vulkan/CPU backends it is unnecessary (but harmless).
+
+Requires up to 1 TB of free disk space, but it can be allocated over different disks.
+
+### A.0 Prepare Environment
+
+```bash
+cd ${RUNTIME_DIR}/strix-llama.cpp
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+export GGML_HIP_ENABLE_UNIFIED_MEMORY=1
+```
+
+- Set `$SAFETENSORS_DIR` to the model variant download directory.
+- Set `$GGUF_DIR` to the target directory.
+- Set `$VARIANT` to something like `qwen3.8-flash-next-<variant-name>`, e.g. `qwen3.8-flash-next-heretic-2`.
+
+### A.1 BF16 GGUF
+
+Directly download the bf16 gguf - if available - to `${GGUF_DIR}/${VARIANT}-BF16.gguf`, alternatively,
+
+- download the variant's safetensors in the `$SAFETENSORS_DIR` (~336 GB) first and then
+- convert the safetensors to gguf:
+
+```bash
+python3 convert_hf_to_gguf.py --outtype bf16 --no-nextn --outfile ${GGUF_DIR}/${VARIANT}-BF16.gguf $SAFETENSORS_DIR
+```
+
+The resulting gguf file has roughly the same size as the safetensors.
+
+### A.2 Importance Matrix
+
+This step runs the model variant over calibration text that is representative of the model’s intended workload: while
+processing that text, `llama-imatrix` records statistics about the activations entering each weight tensor, primarily
+accumulated squared activation values. These indicate which input directions, channels, or weight groups are used
+strongly and frequently by the model for that kind of data. The resulting statistics are saved as an importance-matrix
+file.
+
+During quantization (step A.3) the quantizer uses the observed importance to choose scales, grouping behavior, or
+precision allocation — effectively making the quantization less damaging to the model.
+
+#### A.2.1 Fetch Calibration Data
+
+Download the AtomicChat calibration text:
+
+```bash
+mkdir -p "${GGUF_DIR}/calib"
+curl -L "https://huggingface.co/datasets/AtomicChat/calib-corpora/resolve/main/builds/qwen3.8-flash-next/calib_train.txt" \
+    -o "${GGUF_DIR}/calib/calib_train.txt"
+```
+
+#### A.2.2 Create Temporary Quantization
+
+Strix Halo can't run the bf16 model against the calibration data, it won't fit into 128 GB.
+
+Create a temporary quantization of the model variant first:
+
+```bash
+./build/bin/llama-quantize "${GGUF_DIR}/${VARIANT}-BF16.gguf" /tmp/proxy-Q4_0.gguf Q4_0
+```
+
+#### A.2.3 Create Imatrix File
+
+Run the variant quantization against the calibration text, record the activations and create the imatrix file (this step
+takes several hours):
+
+```bash
+./build/bin/llama-imatrix -m /tmp/proxy-Q4_0.gguf \
+    -f "${GGUF_DIR}/calib/calib_train.txt" \
+    -o ${GGUF_DIR}/${VARIANT}-combined-imatrix.gguf \
+    -c 1024 -b 2048 -ngl 99 --parse-special --no-ppl
+```
+
+The `--parse-special` option is mandatory, the corpus contains chat markup that calibrates nothing if tokenized as
+literal text.
+
+### A.3 Quantize with the PROJFIX Type Map
+
+Run the quantizer on the bf16 gguf using the imatrix file:
+
+```bash
+cat > projfix-types.txt <<EOF
+attn_k=q8_0
+attn_v=q8_0
+ple_key=q8_0
+ple_value=q8_0
+output_hc_down=q8_0
+output_hc_up=q8_0
+attn_output=q6_k
+output=q6_k
+token_embd=iq4_nl
+per_layer_token_embd=iq4_nl
+EOF
+
+./build/bin/llama-quantize --imatrix ${GGUF_DIR}/${VARIANT}-combined-imatrix.gguf \
+    --tensor-type-file projfix-types.txt \
+    ${GGUF_DIR}/${VARIANT}-BF16.gguf \
+    ${GGUF_DIR}/${VARIANT}-IQ4_NL-PROJFIX.gguf IQ4_NL
+```
+
+Everything else follows from defaults: IQ4_NL base for experts/HC/delta-net bulk, F32 kept for all norms, routers
+(`ffn_gate_inp*`), `ssm_a`, `ssm_dt`, `ssm_conv1d`, BF16 kept for `indexer.q_proj`/`indexer.k_proj` (converter preserves
+these, the quantizer excludes them by name).
+
+Note that order matters in `projfix-types.txt`: the quantizer applies the first matching pattern, so the more specific
+names (`output_hc_down`, `attn_output`) must come before the generic `output`.
+
+### A.4 MTP & Vision
+
+For mtp and vision simply use the unsloth models.
+
+```bash
+curl -L "https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/main/MTP/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf" \
+    -o "${GGUF_DIR}/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf"
+curl -L "https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/main/mmproj-BF16.gguf" \
+    -o "${GGUF_DIR}/mmproj-BF16.gguf"
+```
+
+For mtp make sure to download a model using shared embeddings.
+
+## Note on AI Usage
+
+The document was created usings LLMs. It has been tried and verified manually, and it was revised for human
+readability.
