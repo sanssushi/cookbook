@@ -180,7 +180,7 @@ cmake --build build -j
 
 Repo: <https://huggingface.co/ilintar/qwen3.8-flash-next-gguf-strix-halo>
 
-Download manually into $MODEL_DIR or use Hugging Face `hf` client.
+Download manually into `$MODEL_DIR` or use Hugging Face `hf` client.
 
 ## 9. Runtime Configuration
 
