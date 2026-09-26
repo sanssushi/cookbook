@@ -204,7 +204,7 @@ ctx-size = 262144
 batch-size = 16384
 ubatch-size = 16384
 cache-prompt = on
-ctx-checkpoints = 128
+ctx-checkpoints = 32
 # agentic coding
 reasoning = on
 reasoning-format = deepseek
