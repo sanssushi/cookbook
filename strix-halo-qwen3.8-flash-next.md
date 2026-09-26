@@ -43,8 +43,8 @@ Set three parameters via the bootloader:
 | param                      | why                                                                                                                                           |
 |----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
 | `amd_iommu=off`            | disables IOMMU remapping; avoids DMA translation overhead/quirks of the iGPU with very large buffers under ROCm                               |
-| `amdgpu.gttsize=112640`    | grows the GTT (the GPU's window into system RAM) to 110 GB, so 93 GB weights + KV cache + compute buffers fit (formula: `<GTT in GB> * 1024`) |
-| `ttm.pages_limit=28835840` | raises TTM's allocation page cap to match 110 GB at 4 KB pages (formula: `<amdgpu.gttsize> * 1024 * 1024 / 4096`)                             |
+| `amdgpu.gttsize=107520`    | grows the GTT (the GPU's window into system RAM) to 105 GB, so 93 GB weights + KV cache + compute buffers fit (formula: `<GTT in GB> * 1024`) |
+| `ttm.pages_limit=27525120` | raises TTM's allocation page cap to match 110 GB at 4 KB pages (formula: `<amdgpu.gttsize> * 1024 * 1024 / 4096`)                             |
 
 This gives enough space for model weights and context while still leaving room for other tasks so that the halo box may
 still be usable as main machine (depending on the task) - not only as dedicated inference machine.
@@ -57,7 +57,7 @@ sudo vi /etc/default/grub
 
 uncomment (if need be) and set the default cmdline as follows:
 
-```GRUB_CMDLINE_LINUX_DEFAULT="quiet splash amd_iommu=off amdgpu.gttsize=112640 ttm.pages_limit=28835840"```
+```GRUB_CMDLINE_LINUX_DEFAULT="quiet splash amd_iommu=off amdgpu.gttsize=107520 ttm.pages_limit=27525120"```
 
 then save, update grub and reboot:
 
@@ -204,7 +204,7 @@ ctx-size = 262144
 batch-size = 16384
 ubatch-size = 16384
 cache-prompt = on
-ctx-checkpoints = 128
+ctx-checkpoints = 32
 # agentic coding
 reasoning = on
 reasoning-format = deepseek
