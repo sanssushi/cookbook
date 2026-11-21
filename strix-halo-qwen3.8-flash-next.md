@@ -7,6 +7,10 @@ Complete setup for Ryzen AI Max+ 395, 128 GB unified memory on Linux. Needs ~130
 - Model: [
   `ilintar/qwen3.8-flash-next-gguf-strix-halo`](https://huggingface.co/ilintar/qwen3.8-flash-next-gguf-strix-halo) (93
   GiB IQ4_NL, 9 shards + MTP draft).
+
+> [!NOTE]
+> Update: By now you can throw any QFN weights at `strix-llama.cpp` without compromising on prefill speed.
+
 - Expected Speed: 1k t/s prompt processing and 20-55 t/s token generation.
 - Default distro: Ubuntu 26.04 LTS (hints for other distros included)
 
@@ -44,7 +48,7 @@ Set three parameters via the bootloader:
 |----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
 | `amd_iommu=off`            | disables IOMMU remapping; avoids DMA translation overhead/quirks of the iGPU with very large buffers under ROCm                               |
 | `amdgpu.gttsize=107520`    | grows the GTT (the GPU's window into system RAM) to 105 GB, so 93 GB weights + KV cache + compute buffers fit (formula: `<GTT in GB> * 1024`) |
-| `ttm.pages_limit=27525120` | raises TTM's allocation page cap to match 110 GB at 4 KB pages (formula: `<amdgpu.gttsize> * 1024 * 1024 / 4096`)                             |
+| `ttm.pages_limit=27525120` | raises TTM's allocation page cap to match 105 GB at 4 KB pages (formula: `<amdgpu.gttsize> * 1024 * 1024 / 4096`)                             |
 
 This gives enough space for model weights and context while still leaving room for other tasks so that the halo box may
 still be usable as main machine (depending on the task) - not only as dedicated inference machine.
@@ -94,7 +98,7 @@ The single SDK package `amdrocm-core-sdk<version>-gfx1151` covers everything nee
 whatever the latest version is, e.g.
 
 ```bash
-sudo apt update && sudo apt install -y amdrocm-core-sdk10.0-gfx1151
+sudo apt update && sudo apt install -y amdrocm-core-sdk10.2-gfx1151
 ```
 
 Ubuntu 26.04 LTS is a supported ROCm target. But the same package family exists for RHEL/Fedora.
@@ -259,10 +263,15 @@ Model load takes a few minutes. Runtime is ready when it prints the endpoint on 
 - **Garbled output only with `parallel > 1`** — set `HIP_LAUNCH_BLOCKING=1` before running the server.
 - **Error loading shared libraries** — set `LD_LIBRARY_PATH=/opt/rocm/lib:$LD_LIBRARY_PATH` before running the server.
 
-## Annex: Qwen3.8 Flash Next Variants
+## Annex: Quantize Qwen3.8 Flash Next Variants
 
-The `strix-llama.cpp` runtime reaches its ~1k t/s prompt processing with hand-tuned
-ROCm kernels that only engage for specific per-tensor quant types: IQ4_NL for the bulk
+> [!NOTE]
+> This section is obsolete in the sense that you can throw any QFN weights at
+> `strix-llama.cpp` now without compromising on prefill speed. I'll leave it
+> as an example on how to quantize models.
+
+~~The `strix-llama.cpp` runtime reaches its 1k+ t/s prompt processing with hand-tuned
+ROCm kernels that only engage for specific per-tensor quant types~~: IQ4_NL for the bulk
 weights, Q8_0 for the attention K/V and PLE projections, Q6_K for attention output and
 LM head, BF16/F32 for the small sensitive tensors. Quantizations with other type mixes (e.g. a plain IQ4_XS dump) load
 and run fine, but fall back to slower generic kernel
